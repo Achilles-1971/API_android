@@ -1,29 +1,34 @@
 # Основной фреймворк
-Django>=5.0,<5.2                # Основной фреймворк Django
-djangorestframework>=3.14,<3.15 # REST API для Django
-djangorestframework-simplejwt>=5.2,<5.3  # JWT-аутентификация
-django-cors-headers>=4.2,<4.3   # Поддержка CORS для API
+Django>=4.2,<5.0                 # Django до 5.0 (для совместимости с celery-beat)
+djangorestframework>=3.14,<3.15 # DRF
+djangorestframework-simplejwt>=5.2,<5.3
+django-cors-headers>=4.2,<4.3
 
 # Работа с медиафайлами и статикой
-Pillow>=10.0,<10.1              # Для обработки изображений (ImageField)
-whitenoise>=6.5,<6.6            # Для обслуживания статики в продакшене
+Pillow>=10.0,<10.1
+whitenoise>=6.5,<6.6
 
 # Документация и фильтрация
-drf-yasg>=1.21,<1.22            # Swagger-документация для API
-django-filter>=24.3             # Фильтрация в DRF
+drf-yasg>=1.21,<1.22
+django-filter>=24.3
 
 # Асинхронные задачи и уведомления
-firebase-admin==6.5.0           # Push-уведомления через Firebase
-celery>=5.5,<5.6                # Асинхронные задачи
-django-celery-beat>=2.5,<2.6    # Планировщик задач для Celery
+firebase-admin==6.5.0
+celery>=5.5,<5.6
+django-celery-beat>=2.5,<2.6
 
 # Развёртывание
-gunicorn>=21.0,<22.0            # WSGI-сервер для продакшена
+gunicorn>=21.0,<22.0
+daphne>=4.0,<4.1  # ASGI-сервер для WebSocket
 
 # Кэширование и базы данных
-redis>=5.0,<5.1                 # Для кэширования (Redis как бэкенд)
-psycopg2-binary>=2.9,<2.10      # Драйвер для PostgreSQL (если используешь)
+redis>=5.0,<5.1
+psycopg2-binary>=2.9,<2.10
 
 # Дополнительные утилиты
-python-decouple>=3.8,<3.9       # Для работы с .env файлами
-requests>=2.31,<2.32            # Для HTTP-запросов (если нужны в кастомных сервисах)
+python-decouple>=3.8,<3.9
+requests>=2.31,<2.32
+
+# WebSocket
+channels>=4.0,<4.1
+channels-redis>=4.2,<4.3

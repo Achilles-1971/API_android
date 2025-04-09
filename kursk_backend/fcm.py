@@ -1,7 +1,5 @@
 import firebase_admin
 from firebase_admin import credentials, messaging
-from django.contrib.auth.models import User
-from api.models import FCMToken, PushNotificationSetting
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -13,25 +11,20 @@ logger = logging.getLogger(__name__)
 
 # Инициализация Firebase (один раз)
 if not firebase_admin._apps:
-    cred = credentials.Certificate("firebase-credentials.json")
+    from django.conf import settings
+    cred = credentials.Certificate(settings.BASE_DIR / "firebase-credentials.json")
     firebase_admin.initialize_app(cred)
 
 
 def send_push_notification(token: str, title: str, body: str, data: dict = None):
-    """
-    Отправка push-уведомления одному получателю.
-    :param token: FCM-токен устройства
-    :param title: Заголовок уведомления
-    :param body: Текст уведомления
-    :param data: Доп. данные (например, event_id)
-    """
+    from firebase_admin import messaging
     message = messaging.Message(
         notification=messaging.Notification(
             title=title,
             body=body,
         ),
         token=token,
-        data=data or {}  # Всегда словарь, даже если пустой
+        data=data or {}
     )
     try:
         response = messaging.send(message)
@@ -42,8 +35,8 @@ def send_push_notification(token: str, title: str, body: str, data: dict = None)
         return None
 
 
-def send_push_if_allowed(user: User, notif_type: str, title: str, body: str, data: dict = None):
-    # Карта сопоставления типа уведомления с категорией
+def send_push_if_allowed(user, notif_type: str, title: str, body: str, data: dict = None):
+    from api.models import FCMToken
     category_map = {
         'event_joined': 'events',
         'event_left': 'events',
@@ -54,7 +47,7 @@ def send_push_if_allowed(user: User, notif_type: str, title: str, body: str, dat
         'event_rejected': 'moderation',
         'comment_liked': 'likes_comments',
         'event_reminder': 'events',
-        'new_message': 'messages',  # ✅ добавлена поддержка сообщений
+        'new_message': 'messages',
     }
 
     category = category_map.get(notif_type)
@@ -81,16 +74,15 @@ def send_push_if_allowed(user: User, notif_type: str, title: str, body: str, dat
         return None
 
 
-# Сериализатор для FCM-токена
 class FcmTokenSerializer(Serializer):
     token = CharField(max_length=255)
 
 
-# API для регистрации FCM-токена
 class RegisterFcmTokenView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
+        from api.models import FCMToken
         serializer = FcmTokenSerializer(data=request.data)
         if not serializer.is_valid():
             logger.warning(f"⚠️ Неверные данные для FCM-токена: {serializer.errors}")
@@ -100,37 +92,20 @@ class RegisterFcmTokenView(APIView):
         user = request.user
 
         try:
-            # Проверяем, существует ли токен
             fcm_token, created = FCMToken.objects.get_or_create(token=token)
             if not created:
-                # Если токен существует, обновляем пользователя
                 if fcm_token.user != user:
                     old_user = fcm_token.user
                     fcm_token.user = user
                     fcm_token.save()
                     logger.info(f"ℹ️ Токен {token} перепривязан от {old_user.username if old_user else 'никого'} к {user.username}")
-                    return Response(
-                        {"message": "Token reassigned to current user"},
-                        status=status.HTTP_200_OK
-                    )
+                    return Response({"message": "Token reassigned to current user"}, status=status.HTTP_200_OK)
                 logger.info(f"ℹ️ Токен {token} уже зарегистрирован для {user.username}")
-                return Response(
-                    {"message": "Token already registered for this user"},
-                    status=status.HTTP_200_OK
-                )
-
-            # Если токен новый, привязываем к пользователю
+                return Response({"message": "Token already registered for this user"}, status=status.HTTP_200_OK)
             fcm_token.user = user
             fcm_token.save()
             logger.info(f"✅ Токен {token} зарегистрирован для {user.username}")
-            return Response(
-                {"message": "Token registered successfully"},
-                status=status.HTTP_201_CREATED
-            )
-
+            return Response({"message": "Token registered successfully"}, status=status.HTTP_201_CREATED)
         except Exception as e:
             logger.error(f"❌ Ошибка при регистрации токена {token} для {user.username}: {e}")
-            return Response(
-                {"error": str(e)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

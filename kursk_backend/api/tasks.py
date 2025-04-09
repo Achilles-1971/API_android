@@ -35,9 +35,11 @@ def notify_message_receiver(message_id):
             body=message.content[:100],
             data={
                 'type': 'new_message',
-                'sender_id': str(message.from_user.id)  # Убедимся, что это строка
+                'sender_id': str(message.from_user.id),
+                'receiver_id': str(message.to_user.id) 
             }
         )
+
         # Создаем запись в Notification
         Notification.objects.create(
             user=message.to_user,

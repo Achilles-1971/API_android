@@ -5,17 +5,9 @@ from .tasks import send_email_task, send_push_notification_task
 
 
 def notify_user(user, notif_type, message, entity_type=None, entity_id=None, title=None, body=None, data=None):
-    """
-    Создаёт внутриприложенное уведомление и, при наличии title/body, отправляет push.
-    :param user: пользователь
-    :param notif_type: тип уведомления (event_joined, event_rejected и т.д.)
-    :param message: сообщение, которое будет сохранено в базе
-    :param entity_type: тип сущности (например, 'event')
-    :param entity_id: ID сущности (например, ID мероприятия)
-    :param title: заголовок push-уведомления
-    :param body: тело push-уведомления
-    :param data: словарь с дополнительными данными (например, {'event_id': '5', 'type': 'event_joined'})
-    """
+
+
+    # 📝 Создаём внутреннее уведомление
     Notification.objects.create(
         user=user,
         type=notif_type,
@@ -24,14 +16,24 @@ def notify_user(user, notif_type, message, entity_type=None, entity_id=None, tit
         entity_id=entity_id,
     )
 
+    # 🧠 Объединяем data с обязательными полями
+    final_data = data.copy() if data else {}
+    final_data["receiver_id"] = str(user.id)
+    if entity_id:
+        final_data["entity_id"] = str(entity_id)
+    if notif_type:
+        final_data["type"] = notif_type
+
+    # 🚀 Отправляем push
     if title and body:
         send_push_notification_task.delay(
             user_id=user.id,
             notif_type=notif_type,
             title=title,
             body=body,
-            data=data
+            data=final_data
         )
+
 
 
 def send_event_email(user, subject, body):
