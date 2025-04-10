@@ -55,5 +55,5 @@ build/
 # OS-specific
 *.DS_Store
 
-# 🟢 Разрешаем media
+# 🟢 Разрешаем media лоилилло
 !media/
