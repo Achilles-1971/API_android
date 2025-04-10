@@ -3,14 +3,12 @@ import firebase_admin
 from firebase_admin import credentials
 from decouple import config
 import os
-
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Firebase инициализация
+# Firebase инициализация через файл
 if not firebase_admin._apps:
-    import json
-    firebase_credentials = config('FIREBASE_CREDENTIALS')
-    cred = credentials.Certificate(json.loads(firebase_credentials))
+    cred_path = os.path.join(BASE_DIR, "firebase-credentials.json")
+    cred = credentials.Certificate(cred_path)
     firebase_admin.initialize_app(cred)
 
 SECRET_KEY = config('SECRET_KEY')
