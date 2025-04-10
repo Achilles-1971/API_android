@@ -11,8 +11,11 @@ logger = logging.getLogger(__name__)
 
 # Инициализация Firebase (один раз)
 if not firebase_admin._apps:
+    import json
     from django.conf import settings
-    cred = credentials.Certificate(settings.BASE_DIR / "firebase-credentials.json")
+    from decouple import config
+    firebase_credentials = config('FIREBASE_CREDENTIALS')
+    cred = credentials.Certificate(json.loads(firebase_credentials))
     firebase_admin.initialize_app(cred)
 
 

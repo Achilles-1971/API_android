@@ -1,18 +1,22 @@
 from pathlib import Path
 import firebase_admin
 from firebase_admin import credentials
+from decouple import config
+import os
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Firebase инициализация
 if not firebase_admin._apps:
-    cred = credentials.Certificate(BASE_DIR / 'firebase-credentials.json')
+    import json
+    firebase_credentials = config('FIREBASE_CREDENTIALS')
+    cred = credentials.Certificate(json.loads(firebase_credentials))
     firebase_admin.initialize_app(cred)
 
-SECRET_KEY = 'django-insecure-=q9+*la)5=d$m7jm76vbu+$j$w*108z(84zm-mkxb#(fv!nr3!'
-DEBUG = True
+SECRET_KEY = config('SECRET_KEY')
+DEBUG = config('DEBUG', default=False, cast=bool)
 
-ALLOWED_HOSTS = ["localhost", "127.0.0.1", "10.0.2.2"]
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=lambda v: [s.strip() for s in v.split(',')])
 
 AUTH_USER_MODEL = 'api.User'
 
@@ -36,14 +40,14 @@ INSTALLED_APPS = [
 WSGI_APPLICATION = 'kursk_backend.wsgi.application'
 ASGI_APPLICATION = 'kursk_backend.asgi.application'
 
-# 🔄 Используем localhost для Redis (через сокет-прокси WSL)
-REDIS_HOST = "localhost"
+# Redis
+REDIS_URL = config('REDIS_URL', default='redis://localhost:6379')
 
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
         "CONFIG": {
-            "hosts": [(f"{REDIS_HOST}", 6379)],
+            "hosts": [REDIS_URL],
         },
     },
 }
@@ -51,6 +55,7 @@ CHANNEL_LAYERS = {
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -104,12 +109,9 @@ TEMPLATES = [
         },
     },
 ]
-
+import dj_database_url
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'kursk_app.db',
-    }
+    'default': dj_database_url.config(default=config('DATABASE_URL'))
 }
 
 AUTH_PASSWORD_VALIDATORS = [
@@ -125,6 +127,8 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
@@ -145,25 +149,20 @@ LOGGING = {
             'class': 'logging.StreamHandler',
             'formatter': 'verbose',
         },
-        'file': {
-            'class': 'logging.FileHandler',
-            'filename': BASE_DIR / 'django.log',
-            'formatter': 'verbose',
-        },
     },
     'loggers': {
         'django': {
-            'handlers': ['console', 'file'],
+            'handlers': ['console'],
             'level': 'INFO',
             'propagate': True,
         },
         'corsheaders': {
-            'handlers': ['console', 'file'],
+            'handlers': ['console'],
             'level': 'DEBUG',
             'propagate': False,
         },
         '': {
-            'handlers': ['console', 'file'],
+            'handlers': ['console'],
             'level': 'DEBUG',
         },
     },
@@ -173,16 +172,16 @@ EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.yandex.ru'
 EMAIL_PORT = 465
 EMAIL_HOST_USER = 'dylanbob0@yandex.ru'
-EMAIL_HOST_PASSWORD = "qundmssnkzvpurqq"
+EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
 EMAIL_USE_SSL = True
 EMAIL_USE_TLS = False
 
 DEFAULT_FROM_EMAIL = 'dylanbob0@yandex.ru'
 SERVER_EMAIL = 'dylanbob0@yandex.ru'
 
-# 💡 Celery и кэш теперь тоже используют localhost (через сокет-прокси)
-CELERY_BROKER_URL = f'redis://{REDIS_HOST}:6379/0'
-CELERY_RESULT_BACKEND = f'redis://{REDIS_HOST}:6379/0'
+# Celery и кэш
+CELERY_BROKER_URL = f'{REDIS_URL}/0'
+CELERY_RESULT_BACKEND = f'{REDIS_URL}/0'
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
@@ -190,7 +189,7 @@ CELERY_RESULT_SERIALIZER = 'json'
 CACHES = {
     'default': {
         'BACKEND': 'django_redis.cache.RedisCache',
-        'LOCATION': f'redis://{REDIS_HOST}:6379/1',
+        'LOCATION': f'{REDIS_URL}/1',
         'OPTIONS': {
             'CLIENT_CLASS': 'django_redis.client.DefaultClient',
         }
