@@ -23,7 +23,7 @@ daphne==4.0.0
 
 # Кэширование и базы данных
 redis==5.0.0
-psycopg2-binary==2.9.0
+psycopg2-binary==2.9.9
 
 # Дополнительные утилиты
 python-decouple==3.8.0
@@ -33,4 +33,5 @@ requests==2.31.0
 channels==4.0.0
 channels-redis==4.2.0
 
+# Поддержка DATABASE_URL
 dj-database-url==1.0.0
