@@ -8,9 +8,6 @@ __pycache__/
 *.sqlite3
 db.sqlite3
 
-# Firebase credentials
-firebase-credentials.json
-
 # Static files (но не media)
 staticfiles/
 *.pot
