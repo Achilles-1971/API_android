@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 class UserSerializer(serializers.ModelSerializer):
     avatar = serializers.ImageField(allow_null=True, required=False)
     bio = serializers.CharField(allow_null=True, required=False)
+    username = serializers.CharField(required=True)
 
     class Meta:
         model = User
@@ -27,14 +28,22 @@ class UserSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at'
         ]
 
+    def validate_username(self, value):
+        if len(value.strip()) < 3:
+            raise serializers.ValidationError("Имя пользователя должно быть не короче 3 символов.")
+        return value.strip()
+
+    def validate_bio(self, value):
+        if value and len(value) > 1000:
+            raise serializers.ValidationError("Описание не должно превышать 1000 символов.")
+        return value.strip() if value else value
+
     def to_representation(self, instance):
-        # Дополнительная обработка для явного указания значений
         representation = super().to_representation(instance)
-        if representation['avatar'] is None:
-            representation['avatar'] = None  # Оставляем null для JSON
-        if representation['bio'] is None:
-            representation['bio'] = None  # Оставляем null для JSON
+        representation['avatar'] = representation['avatar'] or None
+        representation['bio'] = representation['bio'] or None
         return representation
+
 
 class FriendshipSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)

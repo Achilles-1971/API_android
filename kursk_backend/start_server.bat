@@ -1,5 +1,5 @@
 @echo off
-echo 🔁 Starting Redis (WSL), Celery, Daphne (ASGI) and Celery Beat...
+echo Starting Redis (WSL), Celery, Daphne (ASGI) and Celery Beat...
 
 :: 1. Запуск Redis через WSL
 start cmd /k "wsl redis-server"

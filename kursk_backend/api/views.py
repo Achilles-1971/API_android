@@ -28,7 +28,7 @@ from .serializers import (
     EventSerializer, EventRegistrationSerializer,
     PlaceSerializer, PlaceRatingSerializer,
     CommentSerializer, NotificationSerializer,
-    UserActivitySerializer
+    UserActivitySerializer, NewsListSerializer
 )
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
@@ -320,40 +320,37 @@ from api.authentication import CustomTokenAuthentication  # Импортируе
 User = get_user_model()
 
 @api_view(['GET', 'PUT', 'DELETE'])
-@authentication_classes([CustomTokenAuthentication, SessionAuthentication])  # Заменяем TokenAuthentication
+@authentication_classes([CustomTokenAuthentication, SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def user_detail(request, pk):
-    print("DEBUG: user_detail called with pk =", pk)
-    print("DEBUG: Request headers:", dict(request.headers))
-    print("DEBUG: Authenticated user:", request.user, "is_authenticated:", request.user.is_authenticated)
     try:
         user_obj = User.objects.get(pk=pk)
     except User.DoesNotExist:
-        return Response({'error': 'Пользователь не найден'}, status=404)
+        return Response({'error': 'Пользователь не найден'}, status=status.HTTP_404_NOT_FOUND)
+
+    # ⛔ Защита от редактирования/удаления чужого профиля
+    if request.method in ['PUT', 'DELETE'] and request.user.id != pk:
+        return Response({'error': 'Нельзя редактировать или удалять чужой профиль'}, status=status.HTTP_403_FORBIDDEN)
 
     if request.method == 'GET':
-        print("DEBUG: Handling GET for /api/users/", pk)
-        return Response({
-            'id': user_obj.id,
-            'username': user_obj.username,
-            'avatar': user_obj.avatar.url if user_obj.avatar else None
-        }, status=200)
+        serializer = UserSerializer(user_obj, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     elif request.method == 'PUT':
-        print("DEBUG: Handling PUT for /api/users/", pk)
         data = request.data.copy()
         data['updated_at'] = str(timezone.now())
-        ser = UserSerializer(user_obj, data=data, partial=True)
-        if ser.is_valid():
-            ser.save()
-            return Response(ser.data, status=200)
-        return Response(ser.errors, status=400)
+        serializer = UserSerializer(user_obj, data=data, partial=True, context={'request': request})
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     elif request.method == 'DELETE':
-        print("DEBUG: Handling DELETE for /api/users/", pk)
         user_obj.delete()
-        return Response({'message': 'Пользователь удалён'}, status=204)
-from .serializers import NewsListSerializer, NewsDetailSerializer
+        return Response({'message': 'Пользователь удалён'}, status=status.HTTP_204_NO_CONTENT)
+from .serializers import NewsListSerializer
+
+logger = logging.getLogger(__name__)
 
 @api_view(['GET'])
 def news_list(request):
@@ -362,17 +359,16 @@ def news_list(request):
     cache_time_key = f'{cache_key}_time'
     cached_data = cache.get(cache_key)
     last_cached_time = cache.get(cache_time_key)
-    
-    # Проверяем, есть ли обновления новее кэша
+
     try:
         last_update = News.objects.latest('updated_at').updated_at
     except News.DoesNotExist:
         last_update = None
-    
+
     if cached_data is not None and last_cached_time and (not last_update or last_cached_time >= last_update):
         logger.info(f"Returning cached data for news_list with sort={sort_param}")
         return Response(cached_data, status=200)
-    
+
     qs = News.objects.prefetch_related('photos').all()
     if sort_param == 'date_asc':
         qs = qs.order_by('created_at')
@@ -403,8 +399,8 @@ def news_list(request):
         ).order_by('-rating')
     else:
         qs = qs.order_by('-created_at')
-    
-    ser = NewsListSerializer(qs, many=True)
+
+    ser = NewsListSerializer(qs, many=True, context={'request': request})
     now = timezone.now()
     cache.set(cache_key, ser.data, 60 * 15)
     cache.set(cache_time_key, now)
@@ -440,6 +436,7 @@ def create_news(request):
 
 
 from django.contrib.contenttypes.models import ContentType
+from .serializers import NewsDetailSerializer
 
 @api_view(['GET', 'PUT', 'DELETE'])
 def news_detail(request, pk):
@@ -449,7 +446,7 @@ def news_detail(request, pk):
         return Response({'error': 'Новость не найдена'}, status=404)
 
     if request.method == 'GET':
-        ser = NewsDetailSerializer(news_obj)
+        ser = NewsDetailSerializer(news_obj, context={'request': request})
         data = ser.data
         news_ct = ContentType.objects.get_for_model(News)
         comment_count = Comment.objects.filter(content_type=news_ct, object_id=news_obj.id).count()
@@ -466,7 +463,6 @@ def news_detail(request, pk):
     elif request.method == 'DELETE':
         news_obj.delete()
         return Response({'message': 'Новость удалена'}, status=204)
-
 
 
 
@@ -627,7 +623,7 @@ def get_messages_between(request, user1, user2):
     qs = Message.objects.filter(
         Q(from_user_id=user1, to_user_id=user2) |
         Q(from_user_id=user2, to_user_id=user1)
-    ).select_related('from_user', 'to_user').order_by('-sent_at')
+    ).select_related('from_user', 'to_user').order_by('sent_at') 
 
     paginator = MessagePagination()
     page = paginator.paginate_queryset(qs, request)
