@@ -35,3 +35,4 @@ channels-redis==4.2.0
 
 # Поддержка DATABASE_URL
 dj-database-url==1.0.0
+django-redis==5.4.0
